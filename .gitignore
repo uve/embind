@@ -1,0 +1,4 @@
+node_modules
+*.out
+/public/a.out
+.vscode

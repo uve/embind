@@ -1,0 +1,51 @@
+<!doctype html>
+<html>
+  <script>
+
+    function getMBSize(x) {
+      return Number.parseFloat(x / (1024 * 1024)).toFixed(2);
+    }
+
+    var Module = {
+      onRuntimeInitialized: async function() {
+        let t1 = Date.now();
+
+
+        let retVector = await Module.msg_unpack(1000*1000);
+
+
+
+        console.log("all unpack + data transferring = ", Date.now() - t1 );
+
+        console.log(retVector);
+        //debugger;
+
+        let dataArray = [];
+        for (var i = 0; i < retVector.size(); i++) {
+          dataArray.push(retVector.get(i));
+        }
+
+
+        let str = JSON.stringify(dataArray);
+      
+        console.log("JSON stringify time = ", Date.now() - t1 );
+
+
+        console.log("JSON length = ", getMBSize(str.length), "MB" );
+
+
+        t1 = Date.now();
+        data = JSON.parse(str);
+      
+        console.log("JSON parse time = ", Date.now() - t1 );
+
+
+        console.log("data[0]", data[0]);
+
+        
+
+      }
+    };
+  </script>
+  <script src="./unpack.js"></script>
+</html>
