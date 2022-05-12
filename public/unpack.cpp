@@ -5,25 +5,21 @@
 
 #include <random>
 
+#include <sys/resource.h>
 
 
 
 /*
 
  Compile:
-
-emcc -lembind -o unpack.js unpack.cpp  -I /usr/local/include/ -I  /opt/homebrew/Cellar/boost/1.78.0_1/include  -Wall -Wextra -std=gnu++17  -sALLOW_MEMORY_GROWTH -O3
-
-g++ unpack.cpp -I /usr/local/include/ -I  /opt/homebrew/Cellar/boost/1.78.0_1/include  -Wall -Wextra -std=gnu++17 -O3 && ./a.out          
-
+./native 
+or
+./wasm 
 */
-//using namespace std;
 
 
-struct buffer {
-  unsigned int pointer;
-  unsigned int size;
-};
+const long ARRAY_SIZE = 2*1000;
+
 
 struct MyType {
     int Column1;
@@ -44,6 +40,11 @@ struct MyType {
                     float1, float2);
 };
 
+
+
+struct MyResult {
+    MyType data[ARRAY_SIZE];
+};
 
 // Utility functions:
 
@@ -91,27 +92,29 @@ std::string gen_random(const int len) {
     return tmp_s;
 }
 
-//std::vector<MyType > msg_unpack(int size)
-
-buffer msg_unpack(int size)
-{
-
-    buffer myBuffer;
-   
-
-    time_t now_time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-    // packing
-    std::stringstream ss;
-    std::vector<MyType > m {
-    };
-
-
-    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-
     std::random_device rd; // obtain a random number from hardware
     std::mt19937 gen(rd()); // seed the generator
     std::uniform_int_distribution<> distr(25, 63); // define the range
     std::uniform_real_distribution<> distr_real(-1, 1); // define the range
+
+    time_t now_time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+
+//std::array<MyType,size> msgs_unpack()
+MyResult msg_unpack()
+{
+
+    // packing
+    std::stringstream ss;
+
+ 
+    std::array<MyType, ARRAY_SIZE> m;
+
+
+    std::cout << "ARRAY_SIZE = " << ARRAY_SIZE << std::endl;
+
+
+
+    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
 
     std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
 
@@ -122,23 +125,26 @@ buffer msg_unpack(int size)
     begin = std::chrono::steady_clock::now();
 
 
-    for (int i = 0; i < size; i++) {
-        m.push_back(
-            { distr(gen), now_time, distr(gen), now_time, distr(gen), distr(gen), 1,
+    for (int i = 0; i < ARRAY_SIZE; i++) {
+        
+        m[i] = MyType{ distr(gen), now_time, distr(gen), now_time, distr(gen), distr(gen), 1,
                     gen_random(distr(gen)), gen_random(distr(gen)),
-                    distr_real(gen), distr_real(gen)}
-        );
+                    distr_real(gen), distr_real(gen)};
+                    
 
-        if (i == 0) {
+        if (i < 1) {
+            
             std::cout << "****** Generated data ******" << std::endl;
-            std::cout << "Column1 = " << m.front().Column1 << std::endl;
-            std::cout << "str1 = " << m.front().str1 << std::endl;
-            std::cout << "start_station_code = " << m.front().start_station_code << std::endl;
+            std::cout << "Column1 = " << m[i].Column1 << std::endl;
+            std::cout << "str1 = " << m[i].str1 << std::endl;
+            std::cout << "start_station_code = " << m[i].start_station_code << std::endl;
             std::cout << "****************************" << std::endl;
+            
         }
 
          //pt.put (item);
     }
+
 
     msgpack::pack(ss, m);
 
@@ -146,7 +152,10 @@ buffer msg_unpack(int size)
 
     std::cout << "Pack time = " << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - begin).count() << "[ms]" << std::endl;
 
-    /****************************************/
+    //std::cout << ss.str() << std::endl;
+
+    /***************************************/
+    
     begin = std::chrono::steady_clock::now();
 
     auto oh = msgpack::unpack(ss.str().data(), ss.str().size());
@@ -158,31 +167,38 @@ buffer msg_unpack(int size)
     
     // converting
     msgpack::object const &obj = oh.get();
-    auto v2 = obj.as<std::vector<MyType > >();
+
+    std::array<MyType, ARRAY_SIZE> v2 = obj.as<std::array<MyType, ARRAY_SIZE > >();
 
     std::cout << "Cast time time = " << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - begin).count() << "[ms]" << std::endl;
 
-    //return v2;
 
-    MyType * myTab = (MyType*)malloc(size * sizeof(MyType));
+    /****************************************/
+    begin = std::chrono::steady_clock::now();
+    
 
-    for (int i = 0; i < size; i++) {
-      myTab[i] = v2.front();
-      //printf(" Native side index: %d value: %f address: %p\n", i, myTab[i], &myTab[i]);
+    MyResult d = MyResult{};
+
+    for (int i=0; i < ARRAY_SIZE; i++) {
+        d.data[i] = v2[i];
     }
 
-    myBuffer.pointer = (unsigned int) myTab; 
-    myBuffer.size = size;
+    std::cout << "Copy array time = " << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - begin).count() << "[ms]" << std::endl;
 
-    printf(" Native side pointer: %p size: %d\n", myTab, size);
-    return myBuffer;
+
+    return d;
+    //return v2;
+   
 }
+
+
 int main() {
 
+    
 
 #ifdef EMSCRIPTEN
 #else
-    msg_unpack(500*1000);
+    msg_unpack();
     #endif
 }
 
@@ -192,17 +208,45 @@ int main() {
 using namespace emscripten;
 
 
+template<typename ArrayT, size_t N>
+struct ArrayInitializer : public ArrayInitializer<ArrayT, N-1>
+{
+    explicit ArrayInitializer(emscripten::value_array<ArrayT>& arr) : ArrayInitializer<ArrayT, N-1>{arr}
+    {
+        arr.element(emscripten::index<N-1>());
+    }
+};
+
+template<typename ArrayT>
+struct ArrayInitializer<ArrayT, 0>
+{
+    explicit ArrayInitializer(emscripten::value_array<ArrayT>& arr)
+    {
+    }
+};
+
 
 EMSCRIPTEN_BINDINGS(module) {
 
-        value_array<buffer>("buffer")
-        .element(&buffer::pointer)
-        .element(&buffer::size)
+    function("msg_unpack", &msg_unpack);
+
+
+    value_object<MyResult>("MyResult")
+        .field("data", &MyResult::data)
         ;
 
+  
+    // Register std::array<int, 2> because ArrayInStruct::field is interpreted as such
+    value_array<std::array<MyType, 2>>("array_MyType_2")
+        .element(emscripten::index<0>())
+        .element(emscripten::index<1>())
+        ;
+        
 
 
-    function("msg_unpack", &msg_unpack, allow_raw_pointers());
+    // Register array of Pixels as a Scanline
+    value_array<std::array<MyType, ARRAY_SIZE>> MyType_value_array("MyType");
+    ArrayInitializer<std::array<MyType, ARRAY_SIZE>, ARRAY_SIZE>{MyType_value_array};
 
 
     value_object<MyType>("MyType")
@@ -220,8 +264,7 @@ EMSCRIPTEN_BINDINGS(module) {
         ;
 
 
-
-    register_vector<MyType>("vector<MyType>");
+   
 }
 
 

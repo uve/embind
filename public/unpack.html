@@ -6,24 +6,24 @@
       return Number.parseFloat(x / (1024 * 1024)).toFixed(2);
     }
 
+    
     var Module = {
       onRuntimeInitialized: async function() {
         let t1 = Date.now();
 
 
-        let retVector = await Module.msg_unpack(1000*1000);
+     
+       let retVector = Module.msg_unpack(); // "hello"
 
 
+      console.log(retVector);
 
+    
         console.log("all unpack + data transferring = ", Date.now() - t1 );
 
-        console.log(retVector);
-        //debugger;
+      
 
-        let dataArray = [];
-        for (var i = 0; i < retVector.size(); i++) {
-          dataArray.push(retVector.get(i));
-        }
+        let dataArray = retVector.data;
 
 
         let str = JSON.stringify(dataArray);
